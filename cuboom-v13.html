@@ -1,0 +1,2341 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>CUBOOM!</title>
+<style>
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    color: #ffffff;
+  }
+  html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: #070913;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    touch-action: none;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* Barra Superior */
+  #hud-top {
+    position: fixed;
+    top: max(12px, env(safe-area-inset-top));
+    left: 12px;
+    right: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 8px;
+    z-index: 10;
+    pointer-events: none;
+  }
+  .hud-card {
+    pointer-events: auto;
+    background: rgba(16, 22, 42, 0.88);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 14px;
+    padding: 8px 12px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+  }
+  #player-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    cursor: pointer;
+    min-width: 125px;
+  }
+  #player-info:active {
+    transform: scale(0.97);
+  }
+  .game-brand {
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+    opacity: 0.9;
+  }
+  .player-name {
+    font-size: 14px;
+    font-weight: 700;
+    max-width: 145px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .player-score {
+    font-size: 12px;
+    font-weight: 700;
+    color: #facc15;
+  }
+  .top-actions {
+    display: flex;
+    gap: 6px;
+    pointer-events: auto;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+  .btn {
+    pointer-events: auto;
+    background: rgba(24, 33, 62, 0.92);
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    border-radius: 12px;
+    padding: 9px 11px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    transition: transform 0.1s, background 0.15s;
+  }
+  .btn:active {
+    transform: scale(0.95);
+    background: rgba(45, 62, 112, 0.95);
+  }
+  .btn-primary {
+    background: rgba(46, 75, 158, 0.95);
+    border-color: rgba(255, 255, 255, 0.35);
+  }
+  .btn-shop {
+    background: linear-gradient(135deg, #d97706, #b45309);
+    border-color: rgba(253, 224, 71, 0.55);
+    color: #ffffff;
+  }
+
+  /* Badges de Buffs Ativos no HUD */
+  #active-buffs {
+    position: fixed;
+    top: max(74px, calc(env(safe-area-inset-top) + 64px));
+    left: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    z-index: 9;
+    pointer-events: none;
+  }
+  .buff-badge {
+    background: rgba(16, 22, 42, 0.88);
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    border-radius: 10px;
+    padding: 5px 10px;
+    font-size: 11px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
+  }
+  .buff-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  /* Barra Inferior */
+  #hud-bottom {
+    position: fixed;
+    bottom: max(14px, env(safe-area-inset-bottom));
+    left: 12px;
+    right: 12px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    z-index: 10;
+    pointer-events: none;
+  }
+
+  /* Dica flutuante */
+  #hint {
+    position: fixed;
+    bottom: max(64px, calc(env(safe-area-inset-bottom) + 52px));
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(14, 20, 38, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-size: 11px;
+    letter-spacing: 0.3px;
+    pointer-events: none;
+    white-space: nowrap;
+    transition: opacity 0.6s ease;
+    z-index: 5;
+  }
+
+  /* Modais Gerais (Ranking, Apelido, Raridades) */
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(4, 6, 14, 0.85);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    padding: 16px;
+    z-index: 30;
+  }
+  .modal-backdrop.open {
+    display: flex;
+  }
+  .modal-box {
+    width: 100%;
+    max-width: 410px;
+    background: #10172d;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    border-radius: 18px;
+    padding: 18px;
+    box-shadow: 0 18px 45px rgba(0, 0, 0, 0.7);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .modal-title {
+    font-size: 17px;
+    font-weight: 800;
+    letter-spacing: 0.3px;
+  }
+  .close-btn {
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 10px;
+    padding: 6px 10px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .field-label {
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 6px;
+    display: block;
+  }
+  .text-input {
+    width: 100%;
+    background: #080c18;
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    border-radius: 12px;
+    padding: 12px 14px;
+    font-size: 15px;
+    font-weight: 600;
+    outline: none;
+    user-select: text;
+    -webkit-user-select: text;
+  }
+  .text-input::placeholder {
+    color: rgba(255, 255, 255, 0.45);
+  }
+  .text-input:focus {
+    border-color: #ffffff;
+  }
+  .modal-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+  }
+
+  /* --- LOJA ESTILO ZELDA (Quase Tela Inteira) --- */
+  #modal-shop-zelda {
+    position: fixed;
+    inset: 0;
+    background: radial-gradient(circle at center, #1e1b18 0%, #0c0a09 100%);
+    display: none;
+    z-index: 40;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  #modal-shop-zelda.open {
+    display: flex;
+  }
+  .zelda-top-bar {
+    position: absolute;
+    top: max(16px, env(safe-area-inset-top));
+    left: 20px;
+    right: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 5;
+  }
+  .zelda-title {
+    font-size: 20px;
+    font-weight: 900;
+    color: #fde047;
+    letter-spacing: 1.5px;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.8);
+  }
+  .zelda-balance {
+    font-size: 15px;
+    font-weight: 800;
+    color: #facc15;
+    background: rgba(20, 16, 12, 0.85);
+    border: 1px solid rgba(253, 224, 71, 0.4);
+    padding: 8px 14px;
+    border-radius: 999px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+  }
+
+  /* Canvas 3D da Loja Zelda (Ocupa a tela toda) */
+  #zeldaCanvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* Balão de Diálogo do Senhor Cubo (Estilo Zelda) */
+  #zelda-dialog-box {
+    position: absolute;
+    bottom: max(20px, env(safe-area-inset-bottom));
+    left: 20px;
+    right: 20px;
+    max-width: 650px;
+    margin: 0 auto;
+    background: rgba(28, 22, 16, 0.94);
+    border: 2px solid #fde047;
+    border-radius: 16px;
+    padding: 16px 20px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    z-index: 5;
+    pointer-events: auto;
+  }
+  .zelda-dialog-name {
+    font-size: 13px;
+    font-weight: 900;
+    color: #facc15;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+  }
+  .zelda-dialog-text {
+    font-size: 14px;
+    line-height: 1.4;
+    color: #fef08a;
+  }
+  .zelda-dialog-sub {
+    font-size: 11px;
+    color: rgba(255,255,255,0.6);
+    margin-top: 2px;
+  }
+
+  /* Lista de Ranking e Raridades */
+  .scroll-list {
+    max-height: 310px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-right: 2px;
+  }
+  .list-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 12px;
+    padding: 10px 12px;
+    gap: 10px;
+  }
+  .list-item.active-user {
+    background: rgba(54, 88, 184, 0.35);
+    border-color: rgba(255, 255, 255, 0.45);
+  }
+  .rank-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+  }
+  .rank-pos {
+    font-size: 13px;
+    font-weight: 800;
+    min-width: 26px;
+    text-align: center;
+    background: rgba(255, 255, 255, 0.14);
+    border-radius: 8px;
+    padding: 4px 6px;
+  }
+  .rank-details {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+  .rank-nick {
+    font-size: 13px;
+    font-weight: 700;
+  }
+  .rank-pts {
+    font-size: 11px;
+    opacity: 0.88;
+    line-height: 1.3;
+  }
+  .rarity-swatch {
+    width: 18px;
+    height: 18px;
+    border-radius: 5px;
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    flex-shrink: 0;
+  }
+  .select-user-btn {
+    background: rgba(255, 255, 255, 0.14);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 9px;
+    padding: 6px 10px;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .select-user-btn:active {
+    transform: scale(0.95);
+  }
+  .status-badge {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 5px 8px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.18);
+    flex-shrink: 0;
+  }
+</style>
+</head>
+<body>
+
+<canvas id="gameCanvas"></canvas>
+
+<div id="hud-top">
+  <div id="player-info" class="hud-card" title="Toque para trocar ou criar apelido">
+    <div class="game-brand">CUBOOM!</div>
+    <div class="player-name" id="active-nick">Jogador 1</div>
+    <div class="player-score"><span id="active-score">0</span> pts</div>
+  </div>
+  <div class="top-actions">
+    <button class="btn" id="btn-sound">Som: On</button>
+    <button class="btn" id="btn-rarities">Raridades</button>
+    <button class="btn btn-primary" id="btn-spawn">Novos Cubos</button>
+  </div>
+</div>
+
+<div id="active-buffs"></div>
+
+<div id="hint">Arraste para girar, pinça/scroll para zoom e toque no cubo para explodir</div>
+
+<div id="hud-bottom">
+  <button class="btn btn-shop" id="btn-shop">Loja do Sr. Cubo</button>
+  <button class="btn btn-primary" id="btn-new-user">Apelido</button>
+  <button class="btn" id="btn-ranking">Ranking</button>
+</div>
+
+<!-- Loja Estilo Zelda (3D imersiva de tela inteira) -->
+<div id="modal-shop-zelda">
+  <div class="zelda-top-bar">
+    <div class="zelda-title">EMPÓRIO DO SR. CUBO</div>
+    <div class="zelda-balance">🪙 <span id="zelda-balance-val">0</span> pts</div>
+  </div>
+  <canvas id="zeldaCanvas"></canvas>
+  <div id="zelda-dialog-box">
+    <div class="zelda-dialog-name">Senhor Cubo</div>
+    <div class="zelda-dialog-text" id="zelda-quote">"Ho-ho! Dando apenas uma olhadinha?"</div>
+    <div class="zelda-dialog-sub">Clique em um produto na prateleira para comprar (Toque fora ou ESC para sair)</div>
+  </div>
+</div>
+
+<!-- Modal Criar / Editar Apelido -->
+<div class="modal-backdrop" id="modal-user">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title" id="user-modal-title">Criar Novo Jogador</div>
+      <button class="close-btn" id="close-user-modal">Fechar</button>
+    </div>
+    <div>
+      <label class="field-label" for="nick-input">Digite o apelido:</label>
+      <input type="text" id="nick-input" class="text-input" maxlength="18" placeholder="Ex: MestreDosCubos" autocomplete="off">
+    </div>
+    <div class="modal-actions">
+      <button class="btn" id="btn-rename-current">Renomear Atual</button>
+      <button class="btn btn-primary" id="btn-create-user">Criar e Jogar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Ranking -->
+<div class="modal-backdrop" id="modal-ranking">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title">Ranking CUBOOM!</div>
+      <button class="close-btn" id="close-ranking-modal">Fechar</button>
+    </div>
+    <div class="scroll-list" id="ranking-list"></div>
+  </div>
+</div>
+
+<!-- Modal Raridades -->
+<div class="modal-backdrop" id="modal-rarities">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title">Raridades dos Cubos</div>
+      <button class="close-btn" id="close-rarities-modal">Fechar</button>
+    </div>
+    <div class="scroll-list" id="rarities-list"></div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d', { alpha: false });
+
+  const bgCanvas = document.createElement('canvas');
+  const bgCtx = bgCanvas.getContext('2d', { alpha: false });
+
+  const SHADE_STEPS = 16;
+
+  function buildShadeLUT(hex) {
+    const num = parseInt(hex.slice(1), 16);
+    const br = (num >> 16) & 255;
+    const bg = (num >> 8) & 255;
+    const bb = num & 255;
+    const lut = new Array(SHADE_STEPS);
+    for (let i = 0; i < SHADE_STEPS; i++) {
+      const factor = 0.62 + (i / (SHADE_STEPS - 1)) * 0.55;
+      const r = Math.min(255, Math.round(br * factor));
+      const g = Math.min(255, Math.round(bg * factor));
+      const b = Math.min(255, Math.round(bb * factor));
+      lut[i] = `rgb(${r},${g},${b})`;
+    }
+    return lut;
+  }
+
+  const RARITIES = [
+    { id: 'comum', name: 'Comum', colorName: 'Azul Celeste', hex: '#38bdf8', weight: 42, chanceText: '42%', points: 10, glow: false, pitch: 220, shakeIntensity: 7, notes: [1] },
+    { id: 'incomum', name: 'Incomum', colorName: 'Verde Esmeralda', hex: '#34d399', weight: 26, chanceText: '26%', points: 25, glow: false, pitch: 277, shakeIntensity: 11, notes: [1] },
+    { id: 'raro', name: 'Raro', colorName: 'Roxo Ametista', hex: '#a855f7', weight: 16, chanceText: '16%', points: 60, glow: true, pitch: 330, shakeIntensity: 15, notes: [1] },
+    { id: 'epico', name: 'Epico', colorName: 'Rosa Carmesim', hex: '#f43f5e', weight: 9, chanceText: '9%', points: 150, glow: true, pitch: 415, shakeIntensity: 20, notes: [1, 1.5] },
+    { id: 'lendario', name: 'Lendario', colorName: 'Dourado Solar', hex: '#facc15', weight: 5, chanceText: '5%', points: 400, glow: true, pitch: 523, shakeIntensity: 27, notes: [1, 1.25, 1.5] },
+    { id: 'mitico', name: 'Mitico', colorName: 'Ciano Cristalino', hex: '#22d3ee', weight: 2, chanceText: '2%', points: 1000, glow: true, pitch: 659, shakeIntensity: 36, notes: [1, 1.25, 1.5, 2] }
+  ];
+
+  RARITIES.forEach(r => { r.shadeLUT = buildShadeLUT(r.hex); });
+  const TOTAL_WEIGHT = RARITIES.reduce((acc, r) => acc + r.weight, 0);
+
+  function pickRandomRarity(luckBonus = 0) {
+    let roll = Math.random() * TOTAL_WEIGHT;
+    if (luckBonus > 0) {
+      roll = Math.min(TOTAL_WEIGHT - 0.01, roll + luckBonus * 4.5);
+    }
+    for (let i = 0; i < RARITIES.length; i++) {
+      roll -= RARITIES[i].weight;
+      if (roll <= 0) return RARITIES[i];
+    }
+    return RARITIES[0];
+  }
+
+  // --- Screen Shake ---
+  let shakeTrauma = 0;
+  let shakeTime = 0;
+  let shakeOffsetX = 0;
+  let shakeOffsetY = 0;
+
+  function triggerScreenShake(amount) {
+    shakeTrauma = Math.min(48, shakeTrauma + amount);
+  }
+
+  function updateScreenShake(dt) {
+    if (shakeTrauma > 0.05) {
+      shakeTime += 1.35 * dt;
+      const offsetMag = shakeTrauma * 0.72;
+      shakeOffsetX = (Math.sin(shakeTime * 3.7) * 0.65 + (Math.random() - 0.5) * 0.7) * offsetMag;
+      shakeOffsetY = (Math.cos(shakeTime * 4.3) * 0.65 + (Math.random() - 0.5) * 0.7) * offsetMag;
+      shakeTrauma *= Math.pow(0.86, dt);
+    } else {
+      shakeTrauma = 0;
+      shakeOffsetX = 0;
+      shakeOffsetY = 0;
+    }
+  }
+
+  // --- Sistema de Som ---
+  let audioCtx = null;
+  let sharedNoiseBuffer = null;
+  let soundEnabled = true;
+  let lastCollisionSoundTime = 0;
+
+  function ensureAudio() {
+    if (!soundEnabled) return null;
+    if (!audioCtx) {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (AudioContextClass) {
+        audioCtx = new AudioContextClass();
+        const bufferSize = Math.floor(audioCtx.sampleRate * 0.26);
+        sharedNoiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+        const output = sharedNoiseBuffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          output[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.35));
+        }
+      }
+    }
+    if (audioCtx && audioCtx.state === 'suspended') {
+      audioCtx.resume();
+    }
+    return audioCtx;
+  }
+
+  function playExplosionSound(rarity) {
+    const ctxAudio = ensureAudio();
+    if (!ctxAudio) return;
+
+    const now = ctxAudio.currentTime;
+
+    const oscBoom = ctxAudio.createOscillator();
+    const gainBoom = ctxAudio.createGain();
+    oscBoom.type = 'triangle';
+    const baseFreq = 120 + (rarity.points / 1000) * 55;
+    oscBoom.frequency.setValueAtTime(baseFreq, now);
+    oscBoom.frequency.exponentialRampToValueAtTime(32, now + 0.34);
+
+    gainBoom.gain.setValueAtTime(0.42, now);
+    gainBoom.gain.exponentialRampToValueAtTime(0.001, now + 0.36);
+
+    oscBoom.connect(gainBoom);
+    gainBoom.connect(ctxAudio.destination);
+    oscBoom.start(now);
+    oscBoom.stop(now + 0.37);
+
+    if (sharedNoiseBuffer) {
+      const whiteNoise = ctxAudio.createBufferSource();
+      whiteNoise.buffer = sharedNoiseBuffer;
+
+      const filter = ctxAudio.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(750 + rarity.pitch * 0.8, now);
+      filter.Q.setValueAtTime(1.1, now);
+
+      const gainNoise = ctxAudio.createGain();
+      gainNoise.gain.setValueAtTime(0.3, now);
+      gainNoise.gain.exponentialRampToValueAtTime(0.001, now + 0.26);
+
+      whiteNoise.connect(filter);
+      filter.connect(gainNoise);
+      gainNoise.connect(ctxAudio.destination);
+      whiteNoise.start(now);
+    }
+
+    const notes = rarity.notes;
+    for (let idx = 0; idx < notes.length; idx++) {
+      const mult = notes[idx];
+      const oscChime = ctxAudio.createOscillator();
+      const gainChime = ctxAudio.createGain();
+      oscChime.type = 'sine';
+      const startTime = now + idx * 0.045;
+      oscChime.frequency.setValueAtTime(rarity.pitch * mult, startTime);
+      oscChime.frequency.exponentialRampToValueAtTime(rarity.pitch * mult * 1.18, startTime + 0.22);
+
+      gainChime.gain.setValueAtTime(0.13, startTime);
+      gainChime.gain.exponentialRampToValueAtTime(0.001, startTime + 0.24);
+
+      oscChime.connect(gainChime);
+      gainChime.connect(ctxAudio.destination);
+      oscChime.start(startTime);
+      oscChime.stop(startTime + 0.25);
+    }
+  }
+
+  function playLaserSound() {
+    const ctxAudio = ensureAudio();
+    if (!ctxAudio) return;
+    const now = ctxAudio.currentTime;
+    const osc = ctxAudio.createOscillator();
+    const gain = ctxAudio.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(880, now);
+    osc.frequency.exponentialRampToValueAtTime(220, now + 0.09);
+    gain.gain.setValueAtTime(0.08, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.095);
+    osc.connect(gain);
+    gain.connect(ctxAudio.destination);
+    osc.start(now);
+    osc.stop(now + 0.1);
+  }
+
+  function playBuySound() {
+    const ctxAudio = ensureAudio();
+    if (!ctxAudio) return;
+    const now = ctxAudio.currentTime;
+    [523.25, 659.25, 783.99].forEach((freq, i) => {
+      const osc = ctxAudio.createOscillator();
+      const gain = ctxAudio.createGain();
+      osc.type = 'triangle';
+      const t = now + i * 0.05;
+      osc.frequency.setValueAtTime(freq, t);
+      gain.gain.setValueAtTime(0.14, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.16);
+      osc.connect(gain);
+      gain.connect(ctxAudio.destination);
+      osc.start(t);
+      osc.stop(t + 0.17);
+    });
+  }
+
+  function playCollisionSound(speed) {
+    const ctxAudio = ensureAudio();
+    if (!ctxAudio) return;
+    const now = ctxAudio.currentTime;
+    if (now - lastCollisionSoundTime < 0.035) return;
+
+    const vol = Math.min(0.11, speed * 0.004);
+    if (vol < 0.018) return;
+    lastCollisionSoundTime = now;
+
+    const osc = ctxAudio.createOscillator();
+    const gain = ctxAudio.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(190 + Math.random() * 80, now);
+    osc.frequency.exponentialRampToValueAtTime(85, now + 0.06);
+
+    gain.gain.setValueAtTime(vol, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.065);
+
+    osc.connect(gain);
+    gain.connect(ctxAudio.destination);
+    osc.start(now);
+    osc.stop(now + 0.07);
+  }
+
+  function playClickSound() {
+    const ctxAudio = ensureAudio();
+    if (!ctxAudio) return;
+    const now = ctxAudio.currentTime;
+    const osc = ctxAudio.createOscillator();
+    const gain = ctxAudio.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(480, now);
+    osc.frequency.exponentialRampToValueAtTime(640, now + 0.05);
+    gain.gain.setValueAtTime(0.09, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.055);
+    osc.connect(gain);
+    gain.connect(ctxAudio.destination);
+    osc.start(now);
+    osc.stop(now + 0.06);
+  }
+
+  // --- Jogadores e Upgrades ---
+  const STORAGE_KEY = 'cuboom_game_data_v3';
+  let gameState = { activeUserId: null, users: [] };
+  let saveTimeout = null;
+
+  function ensureUserDefaults(u) {
+    if (!u.upgrades) {
+      u.upgrades = {
+        turret: false,
+        luckLevel: 0,
+        blastLevel: 0,
+        magnetLevel: 0
+      };
+    }
+  }
+
+  function loadState() {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY) || localStorage.getItem('cuboom_game_data_v2') || localStorage.getItem('cuboom_game_data_v1');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && Array.isArray(parsed.users) && parsed.users.length > 0) {
+          gameState = parsed;
+          gameState.users.forEach(ensureUserDefaults);
+          if (!gameState.users.some(u => u.id === gameState.activeUserId)) {
+            gameState.activeUserId = gameState.users[0].id;
+          }
+          return;
+        }
+      }
+    } catch (e) {}
+
+    const defaultId = 'user_' + Date.now();
+    gameState = {
+      activeUserId: defaultId,
+      users: [{
+        id: defaultId,
+        name: 'Jogador 1',
+        score: 0,
+        upgrades: { turret: false, luckLevel: 0, blastLevel: 0, magnetLevel: 0 }
+      }]
+    };
+    saveStateImmediate();
+  }
+
+  function saveStateImmediate() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(gameState));
+    } catch (e) {}
+  }
+
+  function scheduleSave() {
+    if (saveTimeout) return;
+    saveTimeout = setTimeout(() => {
+      saveTimeout = null;
+      saveStateImmediate();
+    }, 500);
+  }
+
+  function getActiveUser() {
+    const u = gameState.users.find(u => u.id === gameState.activeUserId) || gameState.users[0];
+    ensureUserDefaults(u);
+    return u;
+  }
+
+  const activeNickEl = document.getElementById('active-nick');
+  const activeScoreEl = document.getElementById('active-score');
+
+  function updateHUD() {
+    const user = getActiveUser();
+    activeNickEl.textContent = user.name;
+    const formatted = user.score.toLocaleString('pt-BR');
+    activeScoreEl.textContent = formatted;
+  }
+
+  function addScore(points) {
+    const user = getActiveUser();
+    user.score += points;
+    scheduleSave();
+    activeScoreEl.textContent = user.score.toLocaleString('pt-BR');
+  }
+
+  // --- Buffs e Torreta ---
+  let doublePointsTimer = 0;
+  let frenzyTimer = 0;
+
+  const turretState = {
+    activeTime: 0,
+    cooldownTimer: 0,
+    shotTimer: 0,
+    angle: 0
+  };
+  const laserBeams = [];
+
+  function getTurretInterval(activeTime) {
+    const stage = Math.floor(activeTime / 10);
+    if (stage === 0) return 0.8;
+    if (stage === 1) return 1.5;
+    if (stage === 2) return 2.4;
+    return 3.6;
+  }
+
+  // --- Dimensões e Cache ---
+  let width = 0;
+  let height = 0;
+  let dpr = 1;
+
+  function rebuildBackgroundCache() {
+    const pad = 80;
+    bgCanvas.width = width + pad * 2;
+    bgCanvas.height = height + pad * 2;
+    const cx = bgCanvas.width * 0.5;
+    const cy = bgCanvas.height * 0.5;
+    const grad = bgCtx.createRadialGradient(cx, cy, 30, cx, cy, Math.max(width, height) * 0.75);
+    grad.addColorStop(0, '#101833');
+    grad.addColorStop(1, '#060811');
+    bgCtx.fillStyle = grad;
+    bgCtx.fillRect(0, 0, bgCanvas.width, bgCanvas.height);
+  }
+
+  function resize() {
+    dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+    width = window.innerWidth;
+    height = window.innerHeight;
+    canvas.width = Math.floor(width * dpr);
+    canvas.height = Math.floor(height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    rebuildBackgroundCache();
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  // --- Matemática 3D ---
+  function createMatrix() {
+    const m = new Float32Array(9);
+    m[0] = m[4] = m[8] = 1;
+    return m;
+  }
+
+  function setIdentity(m) {
+    m[0] = 1; m[1] = 0; m[2] = 0;
+    m[3] = 0; m[4] = 1; m[5] = 0;
+    m[6] = 0; m[7] = 0; m[8] = 1;
+  }
+
+  const _tmpMat = new Float32Array(9);
+  function multiplyMatricesInPlace(out, a, b) {
+    const a0 = a[0], a1 = a[1], a2 = a[2],
+          a3 = a[3], a4 = a[4], a5 = a[5],
+          a6 = a[6], a7 = a[7], a8 = a[8];
+    const b0 = b[0], b1 = b[1], b2 = b[2],
+          b3 = b[3], b4 = b[4], b5 = b[5],
+          b6 = b[6], b7 = b[7], b8 = b[8];
+
+    _tmpMat[0] = a0*b0 + a1*b3 + a2*b6;
+    _tmpMat[1] = a0*b1 + a1*b4 + a2*b7;
+    _tmpMat[2] = a0*b2 + a1*b5 + a2*b8;
+
+    _tmpMat[3] = a3*b0 + a4*b3 + a5*b6;
+    _tmpMat[4] = a3*b1 + a4*b4 + a5*b7;
+    _tmpMat[5] = a3*b2 + a4*b5 + a5*b8;
+
+    _tmpMat[6] = a6*b0 + a7*b3 + a8*b6;
+    _tmpMat[7] = a6*b1 + a7*b4 + a8*b7;
+    _tmpMat[8] = a6*b2 + a7*b5 + a8*b8;
+
+    out.set(_tmpMat);
+  }
+
+  const _rotMat = new Float32Array(9);
+  function rotateXInPlace(m, angle) {
+    const c = Math.cos(angle), s = Math.sin(angle);
+    _rotMat[0] = 1; _rotMat[1] = 0;  _rotMat[2] = 0;
+    _rotMat[3] = 0; _rotMat[4] = c;  _rotMat[5] = -s;
+    _rotMat[6] = 0; _rotMat[7] = s;  _rotMat[8] = c;
+    multiplyMatricesInPlace(m, _rotMat, m);
+  }
+
+  function rotateYInPlace(m, angle) {
+    const c = Math.cos(angle), s = Math.sin(angle);
+    _rotMat[0] = c;  _rotMat[1] = 0; _rotMat[2] = s;
+    _rotMat[3] = 0;  _rotMat[4] = 1; _rotMat[5] = 0;
+    _rotMat[6] = -s; _rotMat[7] = 0; _rotMat[8] = c;
+    multiplyMatricesInPlace(m, _rotMat, m);
+  }
+
+  function rotateZInPlace(m, angle) {
+    const c = Math.cos(angle), s = Math.sin(angle);
+    _rotMat[0] = c; _rotMat[1] = -s; _rotMat[2] = 0;
+    _rotMat[3] = s; _rotMat[4] = c;  _rotMat[5] = 0;
+    _rotMat[6] = 0; _rotMat[7] = 0;  _rotMat[8] = 1;
+    multiplyMatricesInPlace(m, _rotMat, m);
+  }
+
+  const BASE_VERTICES = [
+    [-1, -1, -1], [ 1, -1, -1], [ 1,  1, -1], [-1,  1, -1],
+    [-1, -1,  1], [ 1, -1,  1], [ 1,  1,  1], [-1,  1,  1]
+  ];
+
+  const FACES = [
+    { idx: [4, 5, 6, 7], nx:  0, ny:  0, nz:  1 },
+    { idx: [1, 0, 3, 2], nx:  0, ny:  0, nz: -1 },
+    { idx: [5, 1, 2, 6], nx:  1, ny:  0, nz:  0 },
+    { idx: [0, 4, 7, 3], nx: -1, ny:  0, nz:  0 },
+    { idx: [3, 7, 6, 2], nx:  0, ny:  1, nz:  0 },
+    { idx: [0, 1, 5, 4], nx:  0, ny: -1, nz:  0 }
+  ];
+
+  // --- Cena do Jogo ---
+  const sceneMatrix = createMatrix();
+  let velYaw = 0.0025;
+  let velPitch = 0.0012;
+
+  let cameraZ = 560;
+  let targetCameraZ = 560;
+  const MIN_CAMERA_Z = 240;
+  const MAX_CAMERA_Z = 980;
+  const FOV = 540;
+  const BOUNDARY = 235;
+
+  const cubes = [];
+  const shardPool = [];
+  const activeShards = [];
+  const shockwaves = [];
+  const floatingTexts = [];
+  const renderList = [];
+  let respawnTimer = 0;
+
+  for (let i = 0; i < 220; i++) {
+    shardPool.push({
+      x: 0, y: 0, z: 0,
+      vx: 0, vy: 0, vz: 0,
+      size: 1,
+      rarity: RARITIES[0],
+      rot: createMatrix(),
+      spinX: 0, spinY: 0,
+      life: 0,
+      viewZ: 0
+    });
+  }
+
+  function createCube(x, y, z) {
+    const user = getActiveUser();
+    const rarity = pickRandomRarity(user.upgrades.luckLevel);
+    const size = 21 + Math.random() * 13;
+    const rot = createMatrix();
+    rotateYInPlace(rot, Math.random() * Math.PI * 2);
+    rotateXInPlace(rot, Math.random() * Math.PI * 2);
+
+    return {
+      x, y, z,
+      vx: (Math.random() - 0.5) * 1.4,
+      vy: (Math.random() - 0.5) * 1.4,
+      vz: (Math.random() - 0.5) * 1.4,
+      size,
+      rarity,
+      rot,
+      spinX: (Math.random() - 0.5) * 0.025,
+      spinY: (Math.random() - 0.5) * 0.025,
+      spinZ: (Math.random() - 0.5) * 0.025,
+      screenX: 0,
+      screenY: 0,
+      screenRadius: 0,
+      cameraDepth: 0,
+      viewZ: 0
+    };
+  }
+
+  function spawnCubes(count = 20) {
+    cubes.length = 0;
+    const minSpacingSq = 68 * 68;
+    for (let i = 0; i < count; i++) {
+      let cx = 0, cy = 0, cz = 0;
+      for (let attempt = 0; attempt < 50; attempt++) {
+        cx = (Math.random() - 0.5) * 320;
+        cy = (Math.random() - 0.5) * 320;
+        cz = (Math.random() - 0.5) * 320;
+        let overlaps = false;
+        for (let j = 0; j < cubes.length; j++) {
+          const other = cubes[j];
+          const dx = other.x - cx;
+          const dy = other.y - cy;
+          const dz = other.z - cz;
+          if (dx*dx + dy*dy + dz*dz < minSpacingSq) {
+            overlaps = true;
+            break;
+          }
+        }
+        if (!overlaps) break;
+      }
+      cubes.push(createCube(cx, cy, cz));
+    }
+  }
+
+  const _projOut = { x: 0, y: 0, scale: 0 };
+  function projectPointInPlace(wx, wy, wz) {
+    const m = sceneMatrix;
+    const vx = m[0]*wx + m[1]*wy + m[2]*wz;
+    const vy = m[3]*wx + m[4]*wy + m[5]*wz;
+    const vz = m[6]*wx + m[7]*wy + m[8]*wz;
+    const zDepth = cameraZ - vz;
+    if (zDepth <= 30) return false;
+    const scale = FOV / zDepth;
+    _projOut.x = width * 0.5 + vx * scale + shakeOffsetX;
+    _projOut.y = height * 0.5 + vy * scale + shakeOffsetY;
+    _projOut.scale = scale;
+    return true;
+  }
+
+  function explodeCube(index, isTurretShot = false) {
+    const target = cubes[index];
+    if (!target) return;
+
+    const user = getActiveUser();
+    cubes[index] = cubes[cubes.length - 1];
+    cubes.pop();
+
+    const mult = doublePointsTimer > 0 ? 2 : 1;
+    const earned = target.rarity.points * mult;
+    addScore(earned);
+
+    if (!isTurretShot) {
+      playExplosionSound(target.rarity);
+      triggerScreenShake(target.rarity.shakeIntensity);
+    } else {
+      triggerScreenShake(target.rarity.shakeIntensity * 0.45);
+    }
+
+    const blastBonus = 1 + user.upgrades.blastLevel * 0.28;
+
+    shockwaves.push({
+      x: target.x,
+      y: target.y,
+      z: target.z,
+      radius: target.size * 0.8,
+      maxRadius: 195 * blastBonus,
+      color: target.rarity.hex,
+      alpha: 0.95
+    });
+
+    const multTag = mult > 1 ? ' (2X!)' : '';
+    floatingTexts.push({
+      x: target.x,
+      y: target.y,
+      z: target.z,
+      label: `${target.rarity.name.toUpperCase()} +${earned}${multTag}`,
+      color: doublePointsTimer > 0 ? '#facc15' : target.rarity.hex,
+      life: 1.0
+    });
+
+    const blastRadius = 290 * blastBonus;
+    const blastRadiusSq = blastRadius * blastRadius;
+    const maxForce = 24 * blastBonus;
+    for (let i = 0; i < cubes.length; i++) {
+      const other = cubes[i];
+      const dx = other.x - target.x;
+      const dy = other.y - target.y;
+      const dz = other.z - target.z;
+      const distSq = dx*dx + dy*dy + dz*dz;
+      if (distSq > 0.0001 && distSq < blastRadiusSq) {
+        const dist = Math.sqrt(distSq);
+        const falloff = Math.pow(1 - dist / blastRadius, 1.35);
+        const impulse = (maxForce * falloff) / dist;
+        other.vx += dx * impulse;
+        other.vy += dy * impulse;
+        other.vz += dz * impulse;
+        other.spinX += (Math.random() - 0.5) * 0.25 * falloff;
+        other.spinY += (Math.random() - 0.5) * 0.25 * falloff;
+        other.spinZ += (Math.random() - 0.5) * 0.25 * falloff;
+      }
+    }
+
+    const shardCount = target.rarity.glow ? 22 : 15;
+    for (let s = 0; s < shardCount; s++) {
+      if (shardPool.length === 0) break;
+      const shard = shardPool.pop();
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.acos(2 * Math.random() - 1);
+      const speed = 4 + Math.random() * 14;
+      const sinPhi = Math.sin(phi);
+
+      shard.x = target.x + (Math.random() - 0.5) * target.size * 0.6;
+      shard.y = target.y + (Math.random() - 0.5) * target.size * 0.6;
+      shard.z = target.z + (Math.random() - 0.5) * target.size * 0.6;
+      shard.vx = sinPhi * Math.cos(theta) * speed;
+      shard.vy = sinPhi * Math.sin(theta) * speed;
+      shard.vz = Math.cos(phi) * speed;
+      shard.size = target.size * (0.2 + Math.random() * 0.22);
+      shard.rarity = target.rarity;
+      setIdentity(shard.rot);
+      rotateYInPlace(shard.rot, Math.random() * Math.PI * 2);
+      rotateXInPlace(shard.rot, Math.random() * Math.PI * 2);
+      shard.spinX = (Math.random() - 0.5) * 0.25;
+      shard.spinY = (Math.random() - 0.5) * 0.25;
+      shard.life = 1.0;
+
+      activeShards.push(shard);
+    }
+
+    if (cubes.length === 0) {
+      respawnTimer = frenzyTimer > 0 ? 12 : 55;
+    }
+  }
+
+  // --- Buffs e Torreta ---
+  const buffsContainerEl = document.getElementById('active-buffs');
+  let lastBuffRenderSec = -1;
+
+  function updateBuffHUD() {
+    const user = getActiveUser();
+    const key = `${Math.ceil(doublePointsTimer)}_${Math.ceil(frenzyTimer)}_${user.upgrades.turret}_${Math.ceil(turretState.cooldownTimer)}_${Math.floor(turretState.activeTime / 10)}`;
+    if (key === lastBuffRenderSec) return;
+    lastBuffRenderSec = key;
+
+    let html = '';
+    if (doublePointsTimer > 0) {
+      html += `<div class="buff-badge"><span class="buff-dot" style="background:#facc15"></span>2X Pontos: ${Math.ceil(doublePointsTimer)}s</div>`;
+    }
+    if (frenzyTimer > 0) {
+      html += `<div class="buff-badge"><span class="buff-dot" style="background:#f43f5e"></span>Frenesi Cúbico: ${Math.ceil(frenzyTimer)}s</div>`;
+    }
+    if (user.upgrades.turret) {
+      if (turretState.cooldownTimer > 0) {
+        html += `<div class="buff-badge"><span class="buff-dot" style="background:#ef4444"></span>Torreta Superaquecida: ${Math.ceil(turretState.cooldownTimer)}s</div>`;
+      } else {
+        const interval = getTurretInterval(turretState.activeTime).toFixed(1);
+        const remOverheat = Math.max(0, Math.ceil(40 - turretState.activeTime));
+        html += `<div class="buff-badge"><span class="buff-dot" style="background:#38bdf8"></span>Torreta (${interval}s/tiro | ${remOverheat}s)</div>`;
+      }
+    }
+    buffsContainerEl.innerHTML = html;
+  }
+
+  function updateTurret(dtSec) {
+    const user = getActiveUser();
+    if (!user.upgrades.turret) return;
+
+    turretState.angle += dtSec * 0.85;
+
+    if (turretState.cooldownTimer > 0) {
+      turretState.cooldownTimer -= dtSec;
+      if (turretState.cooldownTimer <= 0) {
+        turretState.cooldownTimer = 0;
+        turretState.activeTime = 0;
+        turretState.shotTimer = 0.2;
+      }
+      return;
+    }
+
+    turretState.activeTime += dtSec;
+    if (turretState.activeTime >= 40) {
+      turretState.cooldownTimer = 60;
+      turretState.activeTime = 0;
+      return;
+    }
+
+    const currentInterval = getTurretInterval(turretState.activeTime);
+    turretState.shotTimer -= dtSec;
+
+    if (turretState.shotTimer <= 0 && cubes.length > 0) {
+      turretState.shotTimer = currentInterval;
+
+      const tx = Math.cos(turretState.angle) * 265;
+      const ty = Math.sin(turretState.angle * 0.7) * 140;
+      const tz = Math.sin(turretState.angle) * 265;
+
+      const targetIdx = (Math.random() * cubes.length) | 0;
+      const target = cubes[targetIdx];
+      if (target) {
+        laserBeams.push({
+          x1: tx, y1: ty, z1: tz,
+          x2: target.x, y2: target.y, z2: target.z,
+          life: 1.0
+        });
+        playLaserSound();
+        explodeCube(targetIdx, true);
+      }
+    }
+  }
+
+  function updatePhysics(dt, dtSec) {
+    cameraZ += (targetCameraZ - cameraZ) * (1 - Math.pow(0.82, dt));
+
+    if (doublePointsTimer > 0) {
+      doublePointsTimer = Math.max(0, doublePointsTimer - dtSec);
+    }
+    if (frenzyTimer > 0) {
+      frenzyTimer = Math.max(0, frenzyTimer - dtSec);
+      if (cubes.length < 28 && Math.random() < 0.18 * dt) {
+        cubes.push(createCube(
+          (Math.random() - 0.5) * 320,
+          (Math.random() - 0.5) * 320,
+          (Math.random() - 0.5) * 320
+        ));
+      }
+    }
+
+    updateTurret(dtSec);
+    updateBuffHUD();
+
+    if (cubes.length === 0 && respawnTimer > 0) {
+      respawnTimer -= dt;
+      if (respawnTimer <= 0) {
+        respawnTimer = 0;
+        spawnCubes(frenzyTimer > 0 ? 28 : 20);
+      }
+    }
+
+    const user = getActiveUser();
+    const magnetPull = user.upgrades.magnetLevel * 0.014 * dt;
+    const linDamp = Math.pow(0.965, dt);
+    const spinDamp = Math.pow(0.985, dt);
+
+    for (let i = 0; i < cubes.length; i++) {
+      const c = cubes[i];
+
+      if (magnetPull > 0) {
+        c.vx -= c.x * magnetPull * 0.04;
+        c.vy -= c.y * magnetPull * 0.04;
+        c.vz -= c.z * magnetPull * 0.04;
+      }
+
+      c.x += c.vx * dt;
+      c.y += c.vy * dt;
+      c.z += c.vz * dt;
+
+      c.vx *= linDamp;
+      c.vy *= linDamp;
+      c.vz *= linDamp;
+
+      c.spinX *= spinDamp;
+      c.spinY *= spinDamp;
+      c.spinZ *= spinDamp;
+
+      if (Math.abs(c.spinX) < 0.008) c.spinX += (Math.random() - 0.5) * 0.002 * dt;
+      if (Math.abs(c.spinY) < 0.008) c.spinY += (Math.random() - 0.5) * 0.002 * dt;
+
+      rotateXInPlace(c.rot, c.spinX * dt);
+      rotateYInPlace(c.rot, c.spinY * dt);
+      rotateZInPlace(c.rot, c.spinZ * dt);
+
+      if (c.x > BOUNDARY) { c.x = BOUNDARY; c.vx *= -0.75; }
+      else if (c.x < -BOUNDARY) { c.x = -BOUNDARY; c.vx *= -0.75; }
+      if (c.y > BOUNDARY) { c.y = BOUNDARY; c.vy *= -0.75; }
+      else if (c.y < -BOUNDARY) { c.y = -BOUNDARY; c.vy *= -0.75; }
+      if (c.z > BOUNDARY) { c.z = BOUNDARY; c.vz *= -0.75; }
+      else if (c.z < -BOUNDARY) { c.z = -BOUNDARY; c.vz *= -0.75; }
+    }
+
+    for (let i = 0; i < cubes.length; i++) {
+      const a = cubes[i];
+      for (let j = i + 1; j < cubes.length; j++) {
+        const b = cubes[j];
+        const minDist = (a.size + b.size) * 1.15;
+        const dx = b.x - a.x;
+        if (Math.abs(dx) >= minDist) continue;
+        const dy = b.y - a.y;
+        if (Math.abs(dy) >= minDist) continue;
+        const dz = b.z - a.z;
+        if (Math.abs(dz) >= minDist) continue;
+
+        const distSq = dx*dx + dy*dy + dz*dz;
+        if (distSq > 0.0001 && distSq < minDist * minDist) {
+          const dist = Math.sqrt(distSq);
+          const invDist = 1 / dist;
+          const nx = dx * invDist;
+          const ny = dy * invDist;
+          const nz = dz * invDist;
+          const overlap = (minDist - dist) * 0.5;
+
+          a.x -= nx * overlap;
+          a.y -= ny * overlap;
+          a.z -= nz * overlap;
+          b.x += nx * overlap;
+          b.y += ny * overlap;
+          b.z += nz * overlap;
+
+          const rvx = b.vx - a.vx;
+          const rvy = b.vy - a.vy;
+          const rvz = b.vz - a.vz;
+          const velAlongNormal = rvx * nx + rvy * ny + rvz * nz;
+
+          if (velAlongNormal < 0) {
+            const impulse = -1.82 * velAlongNormal * 0.5;
+            a.vx -= impulse * nx;
+            a.vy -= impulse * ny;
+            a.vz -= impulse * nz;
+            b.vx += impulse * nx;
+            b.vy += impulse * ny;
+            b.vz += impulse * nz;
+
+            playCollisionSound(-velAlongNormal);
+          }
+        }
+      }
+    }
+
+    const shardDamp = Math.pow(0.94, dt);
+    for (let i = activeShards.length - 1; i >= 0; i--) {
+      const s = activeShards[i];
+      s.x += s.vx * dt;
+      s.y += s.vy * dt;
+      s.z += s.vz * dt;
+      s.vx *= shardDamp;
+      s.vy *= shardDamp;
+      s.vz *= shardDamp;
+      rotateXInPlace(s.rot, s.spinX * dt);
+      rotateYInPlace(s.rot, s.spinY * dt);
+      s.life -= 0.025 * dt;
+      if (s.life <= 0) {
+        shardPool.push(s);
+        activeShards[i] = activeShards[activeShards.length - 1];
+        activeShards.pop();
+      }
+    }
+
+    for (let i = shockwaves.length - 1; i >= 0; i--) {
+      const sw = shockwaves[i];
+      sw.radius += (sw.maxRadius - sw.radius) * (1 - Math.pow(0.84, dt));
+      sw.alpha -= 0.042 * dt;
+      if (sw.alpha <= 0) {
+        shockwaves[i] = shockwaves[shockwaves.length - 1];
+        shockwaves.pop();
+      }
+    }
+
+    for (let i = floatingTexts.length - 1; i >= 0; i--) {
+      const ft = floatingTexts[i];
+      ft.y -= 1.25 * dt;
+      ft.life -= 0.02 * dt;
+      if (ft.life <= 0) {
+        floatingTexts[i] = floatingTexts[floatingTexts.length - 1];
+        floatingTexts.pop();
+      }
+    }
+
+    for (let i = laserBeams.length - 1; i >= 0; i--) {
+      laserBeams[i].life -= 0.08 * dt;
+      if (laserBeams[i].life <= 0) {
+        laserBeams[i] = laserBeams[laserBeams.length - 1];
+        laserBeams.pop();
+      }
+    }
+  }
+
+  // --- Renderização 3D do Jogo ---
+  const _combinedRot = createMatrix();
+  const _projX = new Float32Array(8);
+  const _projY = new Float32Array(8);
+  const LIGHT_X = 0.45, LIGHT_Y = -0.65, LIGHT_Z = 0.6;
+
+  function drawCube3D(obj, isShard) {
+    multiplyMatricesInPlace(_combinedRot, sceneMatrix, obj.rot);
+
+    const sm = sceneMatrix;
+    const cx = sm[0]*obj.x + sm[1]*obj.y + sm[2]*obj.z;
+    const cy = sm[3]*obj.x + sm[4]*obj.y + sm[5]*obj.z;
+    const cz = obj.viewZ;
+    const centerDepth = cameraZ - cz;
+    if (centerDepth <= 35) return;
+
+    const halfW = width * 0.5 + shakeOffsetX;
+    const halfH = height * 0.5 + shakeOffsetY;
+    const sz = obj.size;
+    const cm = _combinedRot;
+
+    for (let i = 0; i < 8; i++) {
+      const bv = BASE_VERTICES[i];
+      const lx = bv[0] * sz;
+      const ly = bv[1] * sz;
+      const lz = bv[2] * sz;
+
+      const vx = cx + cm[0]*lx + cm[1]*ly + cm[2]*lz;
+      const vy = cy + cm[3]*lx + cm[4]*ly + cm[5]*lz;
+      const vz = cz + cm[6]*lx + cm[7]*ly + cm[8]*lz;
+      const zDepth = cameraZ - vz;
+      if (zDepth <= 20) return;
+
+      const scale = FOV / zDepth;
+      _projX[i] = halfW + vx * scale;
+      _projY[i] = halfH + vy * scale;
+    }
+
+    if (!isShard) {
+      const centerScale = FOV / centerDepth;
+      obj.screenX = halfW + cx * centerScale;
+      obj.screenY = halfH + cy * centerScale;
+      obj.screenRadius = sz * 1.55 * centerScale;
+      obj.cameraDepth = centerDepth;
+    }
+
+    const lut = obj.rarity.shadeLUT;
+    const hasGlow = !isShard && obj.rarity.glow;
+
+    if (isShard) {
+      ctx.globalAlpha = obj.life > 0 ? obj.life : 0;
+    }
+
+    if (hasGlow) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = 0.22;
+      ctx.fillStyle = obj.rarity.hex;
+      ctx.beginPath();
+      ctx.arc(obj.screenX, obj.screenY, obj.screenRadius * 1.15, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    if (!isShard) {
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.28)';
+      ctx.lineWidth = 1;
+    }
+
+    for (let f = 0; f < 6; f++) {
+      const face = FACES[f];
+      const idx = face.idx;
+      const i0 = idx[0], i1 = idx[1], i2 = idx[2], i3 = idx[3];
+
+      const p0x = _projX[i0], p0y = _projY[i0];
+      const p1x = _projX[i1], p1y = _projY[i1];
+      const p2x = _projX[i2], p2y = _projY[i2];
+
+      const cross = (p1x - p0x) * (p2y - p0y) - (p1y - p0y) * (p2x - p0x);
+      if (cross >= 0) continue;
+
+      const wnx = cm[0]*face.nx + cm[1]*face.ny + cm[2]*face.nz;
+      const wny = cm[3]*face.nx + cm[4]*face.ny + cm[5]*face.nz;
+      const wnz = cm[6]*face.nx + cm[7]*face.ny + cm[8]*face.nz;
+
+      const dot = wnx * LIGHT_X + wny * LIGHT_Y + wnz * LIGHT_Z;
+      const shadeIdx = dot > 0 ? Math.min(SHADE_STEPS - 1, (dot * (SHADE_STEPS - 1)) | 0) : 0;
+
+      ctx.beginPath();
+      ctx.moveTo(p0x, p0y);
+      ctx.lineTo(p1x, p1y);
+      ctx.lineTo(p2x, p2y);
+      ctx.lineTo(_projX[i3], _projY[i3]);
+      ctx.closePath();
+
+      ctx.fillStyle = lut[shadeIdx];
+      ctx.fill();
+
+      if (!isShard) {
+        ctx.stroke();
+      }
+    }
+
+    if (isShard) {
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  function drawTurretAndLasers() {
+    const user = getActiveUser();
+    if (user.upgrades.turret) {
+      const tx = Math.cos(turretState.angle) * 265;
+      const ty = Math.sin(turretState.angle * 0.7) * 140;
+      const tz = Math.sin(turretState.angle) * 265;
+
+      if (projectPointInPlace(tx, ty, tz)) {
+        const r = 13 * _projOut.scale;
+        ctx.save();
+        ctx.translate(_projOut.x, _projOut.y);
+        ctx.beginPath();
+        ctx.arc(0, 0, r, 0, Math.PI * 2);
+        ctx.fillStyle = turretState.cooldownTimer > 0 ? '#7f1d1d' : '#1e3a8a';
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = turretState.cooldownTimer > 0 ? '#ef4444' : '#38bdf8';
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 0.45, 0, Math.PI * 2);
+        ctx.fillStyle = turretState.cooldownTimer > 0 ? '#ef4444' : '#facc15';
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    for (let i = 0; i < laserBeams.length; i++) {
+      const b = laserBeams[i];
+      if (!projectPointInPlace(b.x1, b.y1, b.z1)) continue;
+      const sx1 = _projOut.x, sy1 = _projOut.y;
+      if (!projectPointInPlace(b.x2, b.y2, b.z2)) continue;
+      const sx2 = _projOut.x, sy2 = _projOut.y;
+
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, b.life);
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 4 * b.life;
+      ctx.beginPath();
+      ctx.moveTo(sx1, sy1);
+      ctx.lineTo(sx2, sy2);
+      ctx.stroke();
+
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1.5 * b.life;
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  let lastFrameTime = performance.now();
+
+  function render(now) {
+    const rawMs = now - lastFrameTime;
+    lastFrameTime = now;
+    const dt = Math.min(rawMs / 16.6667, 3.0);
+    const dtSec = Math.min(rawMs / 1000, 0.05);
+
+    updateScreenShake(dt);
+
+    ctx.drawImage(bgCanvas, -80 + shakeOffsetX * 0.4, -80 + shakeOffsetY * 0.4);
+
+    if (!isDragging && !isPinching) {
+      rotateYInPlace(sceneMatrix, velYaw * dt);
+      rotateXInPlace(sceneMatrix, velPitch * dt);
+      const rotDamp = Math.pow(0.95, dt);
+      velYaw *= rotDamp;
+      velPitch *= rotDamp;
+    }
+
+    updatePhysics(dt, dtSec);
+
+    renderList.length = 0;
+    const sm6 = sceneMatrix[6], sm7 = sceneMatrix[7], sm8 = sceneMatrix[8];
+
+    for (let i = 0; i < cubes.length; i++) {
+      const c = cubes[i];
+      c.viewZ = sm6 * c.x + sm7 * c.y + sm8 * c.z;
+      c.isShard = false;
+      renderList.push(c);
+    }
+    for (let i = 0; i < activeShards.length; i++) {
+      const s = activeShards[i];
+      s.viewZ = sm6 * s.x + sm7 * s.y + sm8 * s.z;
+      s.isShard = true;
+      renderList.push(s);
+    }
+    renderList.sort((a, b) => a.viewZ - b.viewZ);
+
+    for (let i = 0; i < renderList.length; i++) {
+      const item = renderList[i];
+      drawCube3D(item, item.isShard);
+    }
+
+    drawTurretAndLasers();
+
+    for (let i = 0; i < shockwaves.length; i++) {
+      const sw = shockwaves[i];
+      if (!projectPointInPlace(sw.x, sw.y, sw.z)) continue;
+      ctx.beginPath();
+      ctx.arc(_projOut.x, _projOut.y, sw.radius * _projOut.scale, 0, Math.PI * 2);
+      ctx.strokeStyle = sw.color;
+      ctx.globalAlpha = sw.alpha > 0 ? sw.alpha : 0;
+      ctx.lineWidth = 3 * _projOut.scale;
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+
+    if (floatingTexts.length > 0) {
+      ctx.font = '800 14px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      ctx.textAlign = 'center';
+      for (let i = 0; i < floatingTexts.length; i++) {
+        const ft = floatingTexts[i];
+        if (!projectPointInPlace(ft.x, ft.y, ft.z)) continue;
+        ctx.globalAlpha = ft.life > 0 ? ft.life : 0;
+        ctx.fillStyle = ft.color;
+        ctx.fillText(ft.label, _projOut.x + 1, _projOut.y + 1);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(ft.label, _projOut.x, _projOut.y);
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    requestAnimationFrame(render);
+  }
+
+  // --- LOJA 3D ESTILO ZELDA ---
+  const zeldaCanvas = document.getElementById('zeldaCanvas');
+  const zeldaCtx = zeldaCanvas.getContext('2d', { alpha: false });
+  const modalShopZelda = document.getElementById('modal-shop-zelda');
+  const zeldaQuoteEl = document.getElementById('zelda-quote');
+  const zeldaBalanceValEl = document.getElementById('zelda-balance-val');
+
+  let zeldaAnimId = null;
+  let mouseX = -999, mouseY = -999;
+  let isShopOpen = false;
+
+  const SR_CUBO_QUOTES_ZELDA = [
+    "Ho-ho! Dando apenas uma olhadinha em minhas engenhocas?",
+    "Volte sempre, amigo aventureiro! Que os cubos estejam a seu favor.",
+    "Esta torreta é de última geração! Não me responsabilizo por superaquecimento, ho-ho!",
+    "Procurando poder bruto? Minha pólvora cósmica vai explodir a tela inteira!",
+    "Esses itens são raros de encontrar por estas bandas, aproveite!"
+  ];
+
+  const SHOP_ITEMS = [
+    {
+      id: 'double_pts',
+      name: 'Dobro de Pontos',
+      subtitle: '+10s de Bônus 2X',
+      color: '#38bdf8',
+      shape: 'cube',
+      getPrice: () => 150,
+      isMaxed: () => false,
+      buy: () => { doublePointsTimer += 10; }
+    },
+    {
+      id: 'frenzy',
+      name: 'Frenesi Cúbico',
+      subtitle: 'Chuva de Cubos (12s)',
+      color: '#f43f5e',
+      shape: 'cube',
+      getPrice: () => 250,
+      isMaxed: () => false,
+      buy: () => {
+        frenzyTimer += 12;
+        if (cubes.length < 28) spawnCubes(28);
+      }
+    },
+    {
+      id: 'turret',
+      name: 'Torreta Automática',
+      subtitle: 'Atira sozinha em cubos',
+      color: '#34d399',
+      shape: 'sphere',
+      getPrice: () => 600,
+      isMaxed: (u) => u.upgrades.turret,
+      buy: (u) => {
+        u.upgrades.turret = true;
+        turretState.activeTime = 0;
+        turretState.cooldownTimer = 0;
+        turretState.shotTimer = 0.4;
+      }
+    },
+    {
+      id: 'luck',
+      name: 'Trevo de Sorte',
+      subtitle: 'Mais Cubos Míticos/Raros',
+      color: '#facc15',
+      shape: 'star',
+      getPrice: (u) => 300 * (u.upgrades.luckLevel + 1),
+      isMaxed: (u) => u.upgrades.luckLevel >= 5,
+      buy: (u) => { u.upgrades.luckLevel++; }
+    },
+    {
+      id: 'blast',
+      name: 'Pólvora Cósmica',
+      subtitle: 'Explosões maiores',
+      color: '#a855f7',
+      shape: 'diamond',
+      getPrice: (u) => 250 * (u.upgrades.blastLevel + 1),
+      isMaxed: (u) => u.upgrades.blastLevel >= 5,
+      buy: (u) => { u.upgrades.blastLevel++; }
+    },
+    {
+      id: 'magnet',
+      name: 'Imã Gravitacional',
+      subtitle: 'Atrai cubos ao centro',
+      color: '#22d3ee',
+      shape: 'ring',
+      getPrice: (u) => 350 * (u.upgrades.magnetLevel + 1),
+      isMaxed: (u) => u.upgrades.magnetLevel >= 4,
+      buy: (u) => { u.upgrades.magnetLevel++; }
+    }
+  ];
+
+  let zeldaWidth = 0;
+  let zeldaHeight = 0;
+  let zeldaDpr = 1;
+
+  function resizeZeldaCanvas() {
+    zeldaDpr = Math.min(window.devicePixelRatio || 1, 1.5);
+    zeldaWidth = window.innerWidth;
+    zeldaHeight = window.innerHeight;
+    zeldaCanvas.width = Math.floor(zeldaWidth * zeldaDpr);
+    zeldaCanvas.height = Math.floor(zeldaHeight * zeldaDpr);
+  }
+
+  const interactiveShelves = [];
+
+  function drawStretchedCube(ctxZ, cx, cy, size, colHex, yaw, pitch, roll) {
+    ctxZ.save();
+    ctxZ.translate(cx, cy);
+
+    const w = size * 1.45;
+    const h = size * 0.95;
+    const d = size * 1.35;
+
+    ctxZ.shadowColor = colHex;
+    ctxZ.shadowBlur = 18;
+
+    ctxZ.fillStyle = shadeColorLUT(colHex, 1.25);
+    ctxZ.beginPath();
+    ctxZ.moveTo(0, -d);
+    ctxZ.lineTo(w, -d * 0.5);
+    ctxZ.lineTo(0, 0);
+    ctxZ.lineTo(-w, -d * 0.5);
+    ctxZ.closePath();
+    ctxZ.fill();
+
+    ctxZ.fillStyle = shadeColorLUT(colHex, 0.75);
+    ctxZ.beginPath();
+    ctxZ.moveTo(-w, -d * 0.5);
+    ctxZ.lineTo(0, 0);
+    ctxZ.lineTo(0, h);
+    ctxZ.lineTo(-w, h - d * 0.5);
+    ctxZ.closePath();
+    ctxZ.fill();
+
+    ctxZ.fillStyle = shadeColorLUT(colHex, 1.0);
+    ctxZ.beginPath();
+    ctxZ.moveTo(0, 0);
+    ctxZ.lineTo(w, -d * 0.5);
+    ctxZ.lineTo(w, h - d * 0.5);
+    ctxZ.lineTo(0, h);
+    ctxZ.closePath();
+    ctxZ.fill();
+
+    ctxZ.restore();
+  }
+
+  function shadeColorLUT(hex, factor) {
+    const num = parseInt(hex.slice(1), 16);
+    let r = Math.min(255, Math.max(0, Math.round(((num >> 16) & 255) * factor)));
+    let g = Math.min(255, Math.max(0, Math.round(((num >> 8) & 255) * factor)));
+    let b = Math.min(255, Math.max(0, Math.round((num & 255) * factor)));
+    return `rgb(${r},${g},${b})`;
+  }
+
+  function renderZeldaShop(time) {
+    if (!isShopOpen) return;
+
+    zeldaCtx.setTransform(zeldaDpr, 0, 0, zeldaDpr, 0, 0);
+    const zW = zeldaWidth;
+    const zH = zeldaHeight;
+
+    const grad = zeldaCtx.createRadialGradient(zW * 0.5, zH * 0.4, 40, zW * 0.5, zH * 0.5, Math.max(zW, zH) * 0.8);
+    grad.addColorStop(0, '#291e12');
+    grad.addColorStop(0.5, '#18120b');
+    grad.addColorStop(1, '#090705');
+    zeldaCtx.fillStyle = grad;
+    zeldaCtx.fillRect(0, 0, zW, zH);
+
+    zeldaCtx.fillStyle = '#3a2615';
+    zeldaCtx.strokeStyle = '#5a3d22';
+    zeldaCtx.lineWidth = 4;
+
+    zeldaCtx.fillRect(zW * 0.08, zH * 0.28, zW * 0.35, 18);
+    zeldaCtx.strokeRect(zW * 0.08, zH * 0.28, zW * 0.35, 18);
+    zeldaCtx.fillRect(zW * 0.08, zH * 0.52, zW * 0.35, 18);
+    zeldaCtx.strokeRect(zW * 0.08, zH * 0.52, zW * 0.35, 18);
+
+    zeldaCtx.fillRect(zW * 0.57, zH * 0.28, zW * 0.35, 18);
+    zeldaCtx.strokeRect(zW * 0.57, zH * 0.28, zW * 0.35, 18);
+    zeldaCtx.fillRect(zW * 0.57, zH * 0.52, zW * 0.35, 18);
+    zeldaCtx.strokeRect(zW * 0.57, zH * 0.52, zW * 0.35, 18);
+
+    interactiveShelves.length = 0;
+    const user = getActiveUser();
+
+    const shelfPositions = [
+      { x: zW * 0.20, y: zH * 0.24 },
+      { x: zW * 0.35, y: zH * 0.24 },
+      { x: zW * 0.20, y: zH * 0.48 },
+      { x: zW * 0.35, y: zH * 0.48 },
+      { x: zW * 0.69, y: zH * 0.24 },
+      { x: zW * 0.84, y: zH * 0.24 }
+    ];
+
+    SHOP_ITEMS.forEach((item, idx) => {
+      const pos = shelfPositions[idx];
+      const price = item.getPrice(user);
+      const maxed = item.isMaxed(user);
+      const canBuy = !maxed && user.score >= price;
+
+      const bob = Math.sin(time * 0.003 + idx) * 4;
+      drawStretchedCube(zeldaCtx, pos.x, pos.y + bob, 26, item.color, 0, 0, 0);
+
+      zeldaCtx.font = '700 12px sans-serif';
+      zeldaCtx.textAlign = 'center';
+      zeldaCtx.fillStyle = maxed ? '#94a3b8' : (canBuy ? '#facc15' : '#ef4444');
+      zeldaCtx.fillText(maxed ? 'MÁX' : `${price} pts`, pos.x, pos.y + 34);
+
+      zeldaCtx.font = '600 10px sans-serif';
+      zeldaCtx.fillStyle = 'rgba(255,255,255,0.85)';
+      zeldaCtx.fillText(item.name, pos.x, pos.y + 48);
+
+      interactiveShelves.push({
+        x: pos.x - 45,
+        y: pos.y - 45,
+        w: 90,
+        h: 95,
+        item,
+        user,
+        price,
+        maxed,
+        canBuy
+      });
+    });
+
+    const cuboX = zW * 0.5;
+    const cuboY = zH * 0.38;
+
+    let targetLookX = 0;
+    let targetLookY = 0;
+    if (mouseX > 0 && mouseY > 0) {
+      targetLookX = (mouseX - cuboX) * 0.08;
+      targetLookY = (mouseY - cuboY) * 0.08;
+    }
+
+    zeldaCtx.save();
+    zeldaCtx.translate(cuboX + targetLookX, cuboY + targetLookY);
+
+    const srSize = 52;
+    zeldaCtx.shadowColor = '#facc15';
+    zeldaCtx.shadowBlur = 25;
+
+    zeldaCtx.fillStyle = '#60a5fa';
+    zeldaCtx.beginPath();
+    zeldaCtx.moveTo(0, -srSize * 1.2);
+    zeldaCtx.lineTo(srSize * 1.1, -srSize * 0.6);
+    zeldaCtx.lineTo(0, 0);
+    zeldaCtx.lineTo(-srSize * 1.1, -srSize * 0.6);
+    zeldaCtx.closePath();
+    zeldaCtx.fill();
+
+    zeldaCtx.fillStyle = '#2563eb';
+    zeldaCtx.beginPath();
+    zeldaCtx.moveTo(-srSize * 1.1, -srSize * 0.6);
+    zeldaCtx.lineTo(0, 0);
+    zeldaCtx.lineTo(0, srSize);
+    zeldaCtx.lineTo(-srSize * 1.1, srSize - srSize * 0.6);
+    zeldaCtx.closePath();
+    zeldaCtx.fill();
+
+    zeldaCtx.fillStyle = '#3b82f6';
+    zeldaCtx.beginPath();
+    zeldaCtx.moveTo(0, 0);
+    zeldaCtx.lineTo(srSize * 1.1, -srSize * 0.6);
+    zeldaCtx.lineTo(srSize * 1.1, srSize - srSize * 0.6);
+    zeldaCtx.lineTo(0, srSize);
+    zeldaCtx.closePath();
+    zeldaCtx.fill();
+
+    zeldaCtx.fillStyle = '#f8fafc';
+    zeldaCtx.fillRect(-22, -12, 16, 5);
+    zeldaCtx.fillRect(6, -12, 16, 5);
+
+    zeldaCtx.fillStyle = '#0f172a';
+    zeldaCtx.strokeStyle = '#facc15';
+    zeldaCtx.lineWidth = 3;
+
+    zeldaCtx.beginPath();
+    zeldaCtx.arc(-14, -2, 10, 0, Math.PI * 2);
+    zeldaCtx.fill();
+    zeldaCtx.stroke();
+
+    zeldaCtx.beginPath();
+    zeldaCtx.arc(14, -2, 10, 0, Math.PI * 2);
+    zeldaCtx.fill();
+    zeldaCtx.stroke();
+
+    zeldaCtx.fillStyle = '#ffffff';
+    zeldaCtx.beginPath();
+    zeldaCtx.moveTo(-32, 10);
+    zeldaCtx.quadraticCurveTo(-38, 30, -18, 44);
+    zeldaCtx.quadraticCurveTo(0, 56, 18, 44);
+    zeldaCtx.quadraticCurveTo(38, 30, 32, 10);
+    zeldaCtx.quadraticCurveTo(12, 16, 0, 10);
+    zeldaCtx.quadraticCurveTo(-12, 16, -32, 10);
+    zeldaCtx.closePath();
+    zeldaCtx.fill();
+
+    zeldaCtx.restore();
+
+    if (isShopOpen) {
+      zeldaAnimId = requestAnimationFrame(renderZeldaShop);
+    }
+  }
+
+  zeldaCanvas.addEventListener('mousemove', (e) => {
+    mouseX = e.clientX;
+    mouseY = e.clientY;
+  });
+
+  zeldaCanvas.addEventListener('mouseleave', () => {
+    mouseX = -999;
+    mouseY = -999;
+  });
+
+  zeldaCanvas.addEventListener('pointerdown', (e) => {
+    const rect = zeldaCanvas.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const clickY = e.clientY - rect.top;
+
+    for (let i = 0; i < interactiveShelves.length; i++) {
+      const s = interactiveShelves[i];
+      if (clickX >= s.x && clickX <= s.x + s.w && clickY >= s.y && clickY <= s.y + s.h) {
+        if (s.maxed || s.user.score < s.price) {
+          playClickSound();
+          zeldaQuoteEl.textContent = "Hmm... parece que faltam pontos-cubo ou o item já está no máximo!";
+          return;
+        }
+
+        s.user.score -= s.price;
+        s.item.buy(s.user);
+        saveStateImmediate();
+        updateHUD();
+        updateBuffHUD();
+        playBuySound();
+
+        zeldaBalanceValEl.textContent = s.user.score.toLocaleString('pt-BR');
+        zeldaQuoteEl.textContent = SR_CUBO_QUOTES_ZELDA[Math.floor(Math.random() * SR_CUBO_QUOTES_ZELDA.length)];
+        return;
+      }
+    }
+
+    closeZeldaShop();
+  });
+
+  function openZeldaShop() {
+    ensureAudio();
+    playClickSound();
+    const user = getActiveUser();
+    zeldaBalanceValEl.textContent = user.score.toLocaleString('pt-BR');
+    zeldaQuoteEl.textContent = SR_CUBO_QUOTES_ZELDA[Math.floor(Math.random() * SR_CUBO_QUOTES_ZELDA.length)];
+
+    resizeZeldaCanvas();
+    isShopOpen = true;
+    modalShopZelda.classList.add('open');
+    if (zeldaAnimId) cancelAnimationFrame(zeldaAnimId);
+    zeldaAnimId = requestAnimationFrame(renderZeldaShop);
+  }
+
+  function closeZeldaShop() {
+    isShopOpen = false;
+    modalShopZelda.classList.remove('open');
+    if (zeldaAnimId) cancelAnimationFrame(zeldaAnimId);
+  }
+
+  document.getElementById('btn-shop').addEventListener('click', openZeldaShop);
+
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && isShopOpen) {
+      closeZeldaShop();
+    }
+  });
+
+  // --- Demais Modais e Controles de Zoom ---
+  const modalUser = document.getElementById('modal-user');
+  const modalRanking = document.getElementById('modal-ranking');
+  const modalRarities = document.getElementById('modal-rarities');
+  const nickInput = document.getElementById('nick-input');
+
+  document.getElementById('btn-sound').addEventListener('click', (e) => {
+    soundEnabled = !soundEnabled;
+    e.target.textContent = soundEnabled ? 'Som: On' : 'Som: Off';
+    if (soundEnabled) {
+      ensureAudio();
+      playClickSound();
+    }
+  });
+
+  document.getElementById('btn-spawn').addEventListener('click', () => {
+    ensureAudio();
+    playClickSound();
+    spawnCubes(20);
+  });
+
+  function openUserModal() {
+    ensureAudio();
+    playClickSound();
+    nickInput.value = '';
+    modalUser.classList.add('open');
+    setTimeout(() => nickInput.focus(), 60);
+  }
+
+  document.getElementById('btn-new-user').addEventListener('click', openUserModal);
+  document.getElementById('player-info').addEventListener('click', openUserModal);
+  document.getElementById('close-user-modal').addEventListener('click', () => {
+    modalUser.classList.remove('open');
+  });
+
+  document.getElementById('btn-create-user').addEventListener('click', () => {
+    const raw = nickInput.value.trim();
+    if (!raw) {
+      nickInput.focus();
+      return;
+    }
+    const newId = 'user_' + Date.now();
+    gameState.users.push({
+      id: newId,
+      name: raw,
+      score: 0,
+      upgrades: { turret: false, luckLevel: 0, blastLevel: 0, magnetLevel: 0 }
+    });
+    gameState.activeUserId = newId;
+    doublePointsTimer = 0;
+    frenzyTimer = 0;
+    turretState.activeTime = 0;
+    turretState.cooldownTimer = 0;
+    saveStateImmediate();
+    updateHUD();
+    updateBuffHUD();
+    playClickSound();
+    modalUser.classList.remove('open');
+  });
+
+  document.getElementById('btn-rename-current').addEventListener('click', () => {
+    const raw = nickInput.value.trim();
+    if (!raw) {
+      nickInput.focus();
+      return;
+    }
+    const current = getActiveUser();
+    current.name = raw;
+    saveStateImmediate();
+    updateHUD();
+    playClickSound();
+    modalUser.classList.remove('open');
+  });
+
+  function renderRanking() {
+    const list = document.getElementById('ranking-list');
+    list.innerHTML = '';
+    const sorted = [...gameState.users].sort((a, b) => b.score - a.score);
+
+    sorted.forEach((user, index) => {
+      const isActive = user.id === gameState.activeUserId;
+      const item = document.createElement('div');
+      item.className = 'list-item' + (isActive ? ' active-user' : '');
+
+      const left = document.createElement('div');
+      left.className = 'rank-left';
+
+      const pos = document.createElement('div');
+      pos.className = 'rank-pos';
+      pos.textContent = '#' + (index + 1);
+
+      const details = document.createElement('div');
+      details.className = 'rank-details';
+
+      const nick = document.createElement('div');
+      nick.className = 'rank-nick';
+      nick.textContent = user.name;
+
+      const pts = document.createElement('div');
+      pts.className = 'rank-pts';
+      pts.textContent = user.score.toLocaleString('pt-BR') + ' pontos-cubo';
+
+      details.appendChild(nick);
+      details.appendChild(pts);
+      left.appendChild(pos);
+      left.appendChild(details);
+      item.appendChild(left);
+
+      if (isActive) {
+        const badge = document.createElement('span');
+        badge.className = 'status-badge';
+        badge.textContent = 'Ativo';
+        item.appendChild(badge);
+      } else {
+        const selectBtn = document.createElement('button');
+        selectBtn.className = 'select-user-btn';
+        selectBtn.textContent = 'Jogar';
+        selectBtn.addEventListener('click', () => {
+          gameState.activeUserId = user.id;
+          doublePointsTimer = 0;
+          frenzyTimer = 0;
+          turretState.activeTime = 0;
+          turretState.cooldownTimer = 0;
+          saveStateImmediate();
+          updateHUD();
+          updateBuffHUD();
+          playClickSound();
+          renderRanking();
+        });
+        item.appendChild(selectBtn);
+      }
+
+      list.appendChild(item);
+    });
+  }
+
+  document.getElementById('btn-ranking').addEventListener('click', () => {
+    ensureAudio();
+    playClickSound();
+    renderRanking();
+    modalRanking.classList.add('open');
+  });
+
+  document.getElementById('close-ranking-modal').addEventListener('click', () => {
+    modalRanking.classList.remove('open');
+  });
+
+  function renderRarities() {
+    const list = document.getElementById('rarities-list');
+    list.innerHTML = '';
+
+    RARITIES.forEach((r) => {
+      const item = document.createElement('div');
+      item.className = 'list-item';
+
+      const left = document.createElement('div');
+      left.className = 'rank-left';
+
+      const swatch = document.createElement('div');
+      swatch.className = 'rarity-swatch';
+      swatch.style.backgroundColor = r.hex;
+      if (r.glow) {
+        swatch.style.boxShadow = `0 0 10px ${r.hex}`;
+      }
+
+      const details = document.createElement('div');
+      details.className = 'rank-details';
+
+      const title = document.createElement('div');
+      title.className = 'rank-nick';
+      title.textContent = `${r.name} (${r.colorName})`;
+
+      const sub = document.createElement('div');
+      sub.className = 'rank-pts';
+      sub.textContent = `Chance: ${r.chanceText} | Recompensa: +${r.points.toLocaleString('pt-BR')} pontos-cubo`;
+
+      details.appendChild(title);
+      details.appendChild(sub);
+      left.appendChild(swatch);
+      left.appendChild(details);
+      item.appendChild(left);
+      list.appendChild(item);
+    });
+  }
+
+  document.getElementById('btn-rarities').addEventListener('click', () => {
+    ensureAudio();
+    playClickSound();
+    renderRarities();
+    modalRarities.classList.add('open');
+  });
+
+  document.getElementById('close-rarities-modal').addEventListener('click', () => {
+    modalRarities.classList.remove('open');
+  });
+
+  [modalUser, modalRanking, modalRarities].forEach((modal) => {
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) modal.classList.remove('open');
+    });
+  });
+
+  // --- Controles de Toque e Zoom ---
+  let isDragging = false;
+  let isPinching = false;
+  let pointerMoved = false;
+  let startX = 0;
+  let startY = 0;
+  let lastX = 0;
+  let lastY = 0;
+
+  const activePointers = new Map();
+  let initialPinchDist = 0;
+  let initialPinchCameraZ = 560;
+
+  const hintEl = document.getElementById('hint');
+  let hintHidden = false;
+
+  function hideHintOnce() {
+    if (!hintHidden) {
+      hintHidden = true;
+      hintEl.style.opacity = '0';
+    }
+  }
+
+  function handleTap(tapX, tapY) {
+    if (isShopOpen) return;
+    let hitIndex = -1;
+    let closestDepth = Infinity;
+
+    for (let i = 0; i < cubes.length; i++) {
+      const c = cubes[i];
+      const dx = tapX - c.screenX;
+      const dy = tapY - c.screenY;
+      if (dx*dx + dy*dy <= c.screenRadius * c.screenRadius && c.cameraDepth < closestDepth) {
+        closestDepth = c.cameraDepth;
+        hitIndex = i;
+      }
+    }
+
+    if (hitIndex !== -1) {
+      explodeCube(hitIndex, false);
+    }
+  }
+
+  function getPinchDistance() {
+    const pts = Array.from(activePointers.values());
+    if (pts.length < 2) return 0;
+    return Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y);
+  }
+
+  canvas.addEventListener('pointerdown', (e) => {
+    ensureAudio();
+    hideHintOnce();
+    activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+    if (activePointers.size === 2) {
+      isPinching = true;
+      isDragging = false;
+      pointerMoved = true;
+      initialPinchDist = getPinchDistance();
+      initialPinchCameraZ = targetCameraZ;
+    } else if (activePointers.size === 1) {
+      isDragging = true;
+      isPinching = false;
+      pointerMoved = false;
+      startX = lastX = e.clientX;
+      startY = lastY = e.clientY;
+      velYaw = 0;
+      velPitch = 0;
+    }
+  });
+
+  window.addEventListener('pointermove', (e) => {
+    if (!activePointers.has(e.pointerId)) return;
+    activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+    if (isPinching && activePointers.size >= 2) {
+      const currentDist = getPinchDistance();
+      if (initialPinchDist > 10 && currentDist > 10) {
+        const ratio = initialPinchDist / currentDist;
+        targetCameraZ = Math.max(MIN_CAMERA_Z, Math.min(MAX_CAMERA_Z, initialPinchCameraZ * ratio));
+      }
+      return;
+    }
+
+    if (!isDragging || activePointers.size !== 1) return;
+    const dx = e.clientX - lastX;
+    const dy = e.clientY - lastY;
+    lastX = e.clientX;
+    lastY = e.clientY;
+
+    if (!pointerMoved) {
+      const tdx = e.clientX - startX;
+      const tdy = e.clientY - startY;
+      if (tdx*tdx + tdy*tdy > 81) pointerMoved = true;
+    }
+
+    if (pointerMoved) {
+      const sensitivity = 0.0068;
+      const yawDelta = dx * sensitivity;
+      const pitchDelta = -dy * sensitivity;
+
+      rotateYInPlace(sceneMatrix, yawDelta);
+      rotateXInPlace(sceneMatrix, pitchDelta);
+
+      velYaw = yawDelta * 0.65;
+      velPitch = pitchDelta * 0.65;
+    }
+  });
+
+  function handlePointerEnd(e) {
+    const wasSingleDrag = isDragging && !isPinching && activePointers.size === 1;
+    activePointers.delete(e.pointerId);
+
+    if (activePointers.size < 2) {
+      isPinching = false;
+    }
+    if (activePointers.size === 0) {
+      if (wasSingleDrag && !pointerMoved) {
+        handleTap(e.clientX, e.clientY);
+      }
+      isDragging = false;
+    } else if (activePointers.size === 1) {
+      const remaining = Array.from(activePointers.values())[0];
+      lastX = remaining.x;
+      lastY = remaining.y;
+      isDragging = true;
+      pointerMoved = true;
+    }
+  }
+
+  window.addEventListener('pointerup', handlePointerEnd);
+  window.addEventListener('pointercancel', handlePointerEnd);
+
+  canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    hideHintOnce();
+    const zoomStep = e.deltaY * 0.45;
+    targetCameraZ = Math.max(MIN_CAMERA_Z, Math.min(MAX_CAMERA_Z, targetCameraZ + zoomStep));
+  }, { passive: false });
+
+  // Inicializacao
+  loadState();
+  updateHUD();
+  updateBuffHUD();
+  spawnCubes(20);
+  requestAnimationFrame(render);
+})();
+</script>
+</body>
+</html>
